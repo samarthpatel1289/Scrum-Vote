@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>WebSocket Test</title>
+  <script src="https://cdn.socket.io/4.5.0/socket.io.min.js" integrity="sha384-7EyYLQZgWBi67fBtVxw60/OWl1kjsfrPFcaU0pp0nAh+i8FD068QogUvg85Ewy1k" crossorigin="anonymous"></script>
+</head>
+<body>
+  <h1>WebSocket Test</h1>
+  <div id="messages"></div>
+
+  <script>
+    const roomId = "fe59f852-f0b4-45ab-9e51-a29304cb6dcc"; // Replace with the ID of the room you want to listen to
+
+    // Connect to the WebSocket server
+    const socket = io("ws://localhost:8080");
+    socket.on('joinRoom', (roomId) => {
+        console.log(roomId);
+    });
+
+    socket.emit ("howdy","stranger");
+    // Listen for new ticket events
+    // socket.on('newTicket', (data) => {
+    //   const message = `New ticket created with ID: ${data.ticketId}`;
+    //   console.log(message);
+
+    //   const messagesDiv = document.getElementById('messages');
+    //   const messageElem = document.createElement('div');
+    //   messageElem.innerText = message;
+    //   messagesDiv.appendChild(messageElem);
+    // });
+  </script>
+</body>
+</html>
