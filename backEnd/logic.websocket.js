@@ -5,7 +5,7 @@ const cors = require('cors')
 const app = express();
 const MongoStore = require('connect-mongo');
 const MongoClient = require('mongodb').MongoClient;
-const uri = `<URL_MONGODB>`;
+const uri = process.env.MONGO_URL;
 const client = new MongoClient(uri, { useNewUrlParser: true });
 const { v4: uuidv4 } = require('uuid');
 
