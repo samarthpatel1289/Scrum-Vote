@@ -5,12 +5,13 @@ const cors = require('cors')
 const app = express();
 const MongoStore = require('connect-mongo');
 const MongoClient = require('mongodb').MongoClient;
+require('dotenv').config();
+console.log(process.env.MONGO_URL);
 const uri = process.env.MONGO_URL;
 const client = new MongoClient(uri, { useNewUrlParser: true });
 const { v4: uuidv4 } = require('uuid');
 
 
-require('dotenv').config();
 app.use(express.json());
 app.use(cors({ origin: 'http://localhost:3000', credentials: true })); 
 
@@ -74,7 +75,8 @@ async function createRoom (payload){
             company_name : company_name,
             team_name: team_name,
             creator_name: creator_name,
-            share_link_id: shareid
+            share_link_id: shareid,
+            is_delete:false
         }
 
         //Find if there is any similar Data Entry
@@ -82,6 +84,7 @@ async function createRoom (payload){
             company_name : company_name,
             team_name: team_name,
             creator_name: creator_name,
+            is_delete:false
         }).toArray(); 
         if ((existingroomCollection).length == 0){
             //Inserting Data to Collection
@@ -91,7 +94,8 @@ async function createRoom (payload){
                 name: creator_name,
                 room_id:shareid,
                 is_creator: true,
-                session_id: sessionId
+                session_id: sessionId,
+                is_delete: false
             };
             await userCollection.insertOne(userData);
             return setResponse("create_room", {shareid:shareid, session_id:sessionId}, 200);
@@ -104,6 +108,26 @@ async function createRoom (payload){
             error
         );
         return setResponse("create_room", {message : "error"}, 500);
+    }
+}
+
+async function closeRoom(payload){
+    try{
+        const room_id = payload.room_id
+        const data = await isCreator(payload)
+        if (!data.payload.creator){
+            return setResponse("close_room", {message : "Not a Creator", shareid : room_id}, 400);
+        }
+        const roomData = await roomCollection.find({share_link_id:room_id, is_delete:false}).toArray();
+        if (roomData.length == 0){
+            return setResponse("close_room", {message : "Room Doesn't exist", shareid : room_id}, 400); 
+        }
+        roomData[0].is_delete = true
+        return setResponse("close_room", {message : "Room Closed", shareid : room_id}, 200);
+    }
+    catch(error){
+        console.log(error);
+        return setResponse("close_room", {message : "error"}, 500);
     }
 }
 
@@ -269,14 +293,52 @@ async function getAllName(payload){
     }
 }
 
+async function getAllTicket(payload){
+    try{
+        console.log("GEt Data")
+        const room_id = payload.room_id
+
+        ticketsData = await ticketCollection.find({room_id : room_id}).toArray()
+
+        if (ticketsData.length > 0){
+            const ticketData = countVotes(ticketsData);
+            return setResponse('get_all_ticket', {ticketData}, 200)
+        }
+        else{
+            ticketData = {};
+            return setResponse('get_all_ticket', {ticketData}, 500)
+        }
+
+    }catch(error){
+        console.log(error)
+    }
+}
+
+function countVotes(ticketsData){
+    const averages = ticketsData.map((ticket) => {
+        const votes = ticket.votes;
+        const voteValues = Object.values(votes).map(Number);
+        const sum = voteValues.reduce((acc, curr) => acc + curr, 0);
+        const average = sum / voteValues.length;
+      
+        return {
+            name: ticket.name,
+            averageVotes: average
+        };
+      });
+    return averages
+}
+
 
 module.exports  = {
     createRoom,
+    closeRoom,
     isCreator,
     joinRoom,
     createTicket,
     createVote, 
     getName,
     getAllName,
+    getAllTicket,
     checkCorrect
 }

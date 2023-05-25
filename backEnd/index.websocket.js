@@ -35,6 +35,13 @@ io.on('connection', (socket) => {
         socket.join(data.payload.shareid)
         io.to(data.payload.shareid).emit('message',data)
     }
+    
+    if (message.type == "close_room"){
+      console.log("Logic To Close Room", message.payload)
+      const data = await logic.closeRoom(message.payload)
+      socket.join(data.payload.room_id)
+      io.to(data.payload.room_id).emit('message',data)
+    }
 
     if(message.type == 'is_creator'){
         // TODO: Make a Function to check SessionId timing. 
@@ -53,7 +60,6 @@ io.on('connection', (socket) => {
     }
 
     if(message.type == 'create_ticket'){
-        // TODO: Check if he is creator or not? 
         console.log("Logic to Creating Ticket", message.payload)
         socket.join(message.payload.id)
         io.to(message.payload.id).emit('message', await logic.createTicket(message.payload))
@@ -77,6 +83,12 @@ io.on('connection', (socket) => {
         socket.join(message.payload.room_id)
         io.to(message.payload.room_id).emit('message', await logic.getAllName(message.payload))
     }
+
+    if(message.type == 'get_all_ticket'){
+      console.log("Logic to getAllTicket", message.payload)
+      socket.join(message.payload.session_id)
+      io.to(message.payload.session_id).emit('message', await logic.getAllTicket(message.payload))
+  }
 
   });
 });

@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import { useParams } from "react-router-dom";
 import { makeStyles } from '@material-ui/core/styles';
 import { socket } from './socket';
 import Drawer from '@material-ui/core/Drawer';
@@ -18,6 +17,7 @@ import Button from '@material-ui/core/Button';
 import { useNavigate } from 'react-router-dom';
 import { Fab } from '@material-ui/core';
 import { Table, TableBody, TableCell, TableContainer, TableRow, Paper } from '@material-ui/core';
+import { Snackbar } from '@material-ui/core';
 
 
 import { CircularProgress, Box } from '@material-ui/core';
@@ -137,6 +137,45 @@ root: {
   button: {
     margin: theme.spacing(5),
   },
+  formContainer: {
+    display: 'flex',
+    alignItems: 'center',
+    marginTop: theme.spacing(2),
+  },
+  form: {
+    display: 'flex',
+    flexGrow: 1,
+    marginRight: theme.spacing(2),
+  },
+  inputField: {
+    flex: 1,
+  },
+  buttonContainer: {
+    display: 'flex',
+  },
+  submitButton: {
+    marginLeft: theme.spacing(1),
+  },
+  closeButton: {
+    // Add any additional styling for the close button
+  },copyLinkButtonContainer: {
+    position: 'absolute',
+    bottom: theme.spacing(2),
+    left: '50%',
+    transform: 'translateX(-50%)',
+    width: '100%',
+    display: 'flex',
+    justifyContent: 'center',
+  },snackbarRoot: {
+    minWidth: 200, // Adjust the width to your desired value
+    borderRadius: theme.shape.borderRadius,
+    backgroundColor: theme.palette.primary.main,
+  },
+  snackbarMessage: {
+    padding: theme.spacing(1), // Adjust the padding to your desired value
+    fontSize: '0.8rem', // Adjust the font size to your desired value
+  },
+  
 }));
 
 const Dashboard = () => {
@@ -149,20 +188,19 @@ const Dashboard = () => {
     const [CreatorMessage, setCreatorMessage] = useState({});
     const [isJoinRoom, setIsJoinRoom] = useState(false);
     const [isVote, setIsVote] = useState(0);
-    const [isVoteList, setIsVoteList] = useState({});
+    const [VoteList, setVoteList] = useState({});
     const [isCreator, setIsCreator] = useState(false);
     const [ticketName, setTicketName] = useState('');
     const [ticketValue, setTicketValue] = useState('');
     const [isNewMessage, setIsNewMessage] = useState(false);
     const [newMessage, setNewMessage] = useState({});
-    const { room_id } = useParams();
     const navigate = useNavigate();
     const [disabled, setDisabled] = useState(false);
     const [showTimer, setShowTimer] = useState(false);  // New state variable
     const [timerEnded, setTimerEnded] = useState(false);  // State variable to track if timer has ended
     const [timerKey, setTimerKey] = useState(0);
     
-    socket.on('message', (data) => {    
+    socket.on('message', (data) => {
         setNewMessage(data);
         setIsNewMessage(true)
     });
@@ -181,7 +219,7 @@ const Dashboard = () => {
     }, []);
 
     useEffect(()=>{
-        const isCreator = async() => {
+        const getData = async() => {
             const data = newMessage
             if (data.type == 'is_creator'){ setCreatorMessage(data.payload)}
             if (data.type == 'join_room'){ setIsJoinRoom(true) }
@@ -196,8 +234,23 @@ const Dashboard = () => {
                 setTicketName(data.payload.name);
                 setIsVote(0);
             }
+            if (data.type == 'get_all_ticket'){
+              setVoteList(data.payload)
+            }
+            if(data.type == "close_room"){
+              if(!isCreator){
+                localStorage.removeItem("session_id");
+                localStorage.removeItem("room_id");
+                setSessionId("");
+                setRoomId("");
+                navigate("/")
+              }
+              else{
+                navigate("/vote")
+              }
+            }
         }
-        isCreator();
+        getData();
         setIsNewMessage(false)
     }, [isNewMessage]);
 
@@ -210,6 +263,12 @@ const Dashboard = () => {
         }
         setIsCreatorMessage(false);
     }, [CreatorMessage]);
+
+    useEffect(()=>{
+      const data = VoteList;
+      console.log("Vote Data", data)
+      
+  }, [VoteList]);
 
     useEffect(()=>{
         console.log("Room ID:",roomId)
@@ -226,8 +285,6 @@ const Dashboard = () => {
     const handleSubmit = async(event) => {
         try{
             event.preventDefault();
-            
-
             socket.emit('message', 
             {
                 "type" : "create_ticket",
@@ -273,6 +330,35 @@ const Dashboard = () => {
     setShowTimer(true); // show timer
   };
 
+  const handleCloseRoom = () => {
+    socket.emit("message", 
+    {
+        type: "close_room",
+        payload : {
+            room_id : roomId,
+            session_id : sessionId
+        }
+    }
+  );
+  
+  };
+
+  const [isLinkCopied, setIsLinkCopied] = useState(false);
+
+  const handleCopyLink = () => {
+    const url = roomId; // Replace with your actual URL
+    navigator.clipboard.writeText(url)
+      .then(() => {
+        setIsLinkCopied(true);
+        setTimeout(() => {
+          setIsLinkCopied(false);
+        }, 2000); // Display the notification for 2 seconds
+      })
+      .catch((error) => {
+        console.error('Failed to copy link:', error);
+      });
+  };
+
   return ( 
 <div className={classes.root}>
     <Grid container style={{ height: '100%' }}>
@@ -305,6 +391,25 @@ const Dashboard = () => {
             </ListItem>
           )}
         </List>
+        <div className={classes.copyLinkButtonContainer}>
+        <Button className={classes.copyLinkButton} onClick={handleCopyLink}>
+                Copy Link
+              </Button>
+              {isLinkCopied && (
+                <Snackbar
+                open={isLinkCopied}
+                autoHideDuration={2000}
+                onClose={() => setIsLinkCopied(false)}
+                message="Link copied!"
+                ContentProps={{
+                  classes: {
+                    root: classes.snackbarRoot,
+                    message: classes.snackbarMessage,
+                  },
+                }}
+              />
+              )}
+      </div>
       </Drawer>
     </Grid>
   </Grid>
@@ -330,17 +435,25 @@ const Dashboard = () => {
               <CardContent>
                 <center>
             {isCreator ? (
-                <div>
-                <form className={classes.form} onSubmit={handleSubmit}>
+              <div className={classes.formContainer}>
+              <form className={classes.form} onSubmit={handleSubmit}>
                 <TextField
-                    label="Ticket Name"
-                    value={ticketName}
-                    onChange={(e) => setTicketName(e.target.value)}
-                    InputProps={{ style: { fontSize: 30, width: '100vh' } }}
+                  className={classes.inputField}
+                  label="Ticket Name"
+                  value={ticketName}
+                  onChange={(e) => setTicketName(e.target.value)}
+                  InputProps={{ style: { fontSize: 30 } }}
                 />
-                <Button type="submit" onSubmit={handleSubmit}>Submit</Button>
-                </form>
-                </div>
+              <div className={classes.buttonContainer}>
+                <Button type="submit" onSubmit={handleSubmit} className={classes.submitButton}  >
+                  Submit
+                </Button>
+                <Button className={classes.closeButton} onClick={handleCloseRoom}>
+                  Close Room
+                </Button>
+              </div>
+              </form>
+            </div>
             ) : (
                 <div>
                     {['1', '2', '3', '5', '8'].map((value) => (
